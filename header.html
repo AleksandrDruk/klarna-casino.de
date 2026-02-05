@@ -1,31 +1,151 @@
-<header class="site-header">
-  <div class="header-container">
-    <div class="header-brand">
-      <svg class="brand-logo" width="40" height="40" viewBox="0 0 40 40" fill="none">
-        <path d="M20 4L23 14L33 16L26 22L28 32L20 27L12 32L14 22L7 16L17 14L20 4Z" fill="url(#logoGradient)"/>
-        <defs>
-          <linearGradient id="logoGradient" x1="20" y1="4" x2="20" y2="32" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#FFB84A"/>
-            <stop offset="100%" stop-color="#FF7A18"/>
-          </linearGradient>
-        </defs>
-      </svg>
-      <span class="brand-name">Klarna Casino</span>
-    </div>
+<?php
+/**
+ * Custom Header для WordPress Code Snippets
+ * Скрывает дефолтный header темы Астра и заменяет его кастомным
+ */
+
+// Отключаем стандартный header Астры
+add_action('wp', function() {
+    remove_action('astra_header', 'astra_header_markup');
+});
+
+add_filter('astra_header_enabled', '__return_false');
+
+// Удаляем entry-header из разметки Астры
+// Используем более ранний хук init для гарантированного удаления
+add_action('init', function() {
+    // Удаляем заголовок записи на всех типах страниц
+    remove_action('astra_entry_top', 'astra_entry_header');
+    remove_action('astra_single_header_before', 'astra_single_header');
+    remove_action('astra_page_header', 'astra_page_header');
+    remove_action('astra_entry_before', 'astra_entry_header');
+    remove_action('astra_content_before', 'astra_entry_header');
     
-    <nav class="header-nav">
-      <a href="#top-casinos" class="nav-link">Top Casinos</a>
-      <a href="#features" class="nav-link">Bewertung</a>
-      <a href="#what-is-klarna" class="nav-link">Was ist Klarna</a>
-      <a href="#comparison" class="nav-link">Vergleich</a>
-      <a href="#how-to" class="nav-link">Anleitung</a>
-      <a href="#alternatives" class="nav-link">Alternativen</a>
-    </nav>
+    // Пробуем удалить через другие возможные хуки
+    remove_action('astra_entry_content_before', 'astra_entry_header');
+    remove_action('astra_entry_content_top', 'astra_entry_header');
+});
+
+// Фильтры для отключения entry-header
+add_filter('astra_entry_header_enabled', '__return_false');
+add_filter('astra_single_header_enabled', '__return_false');
+add_filter('astra_page_header_enabled', '__return_false');
+add_filter('astra_the_title_enabled', '__return_false');
+
+// Удаляем через output buffering (более агрессивный метод)
+add_action('template_redirect', function() {
+    ob_start(function($buffer) {
+        // Удаляем entry-header из HTML
+        $buffer = preg_replace('/<header[^>]*class="[^"]*entry-header[^"]*"[^>]*>.*?<\/header>/is', '', $buffer);
+        // Также удаляем через более простой паттерн
+        $buffer = preg_replace('/<header[^>]*class="[^"]*ast-no-thumbnail[^"]*"[^>]*>.*?<\/header>/is', '', $buffer);
+        return $buffer;
+    });
+}, 1);
+
+// JavaScript fallback для удаления через DOM (последняя линия защиты)
+add_action('wp_footer', function() {
+    echo '<script>
+        (function() {
+            function removeEntryHeader() {
+                const entryHeaders = document.querySelectorAll("header.entry-header.ast-no-thumbnail, header.entry-header");
+                entryHeaders.forEach(function(header) {
+                    header.remove();
+                });
+            }
+            if (document.readyState === "loading") {
+                document.addEventListener("DOMContentLoaded", removeEntryHeader);
+            } else {
+                removeEntryHeader();
+            }
+            // Также удаляем после загрузки всех скриптов
+            window.addEventListener("load", removeEntryHeader);
+        })();
+    </script>';
+}, 999);
+
+// Стили вынесены в style.css
+
+// Добавляем класс к body
+add_filter('body_class', function($classes) {
+    $classes[] = 'custom-header-active';
+    return $classes;
+});
+
+// Выводим кастомный header в начале body
+add_action('astra_body_top', function() {
+    // Выводим кастомный header
+    ?>
+    <header class="site-header custom-site-header">
+        <div class="header-container">
+            <div class="header-brand">
+                <a href="<?php echo esc_url(home_url('/')); ?>" class="brand-link">
+                    <img src="https://klarna-casino.de/wp-content/uploads/2026/02/cropped-10.png" alt="<?php echo esc_attr(get_bloginfo('name')); ?>" class="brand-logo" width="40" height="40">
+                    <span class="brand-name"><?php echo esc_html(get_bloginfo('name')); ?></span>
+                </a>
+            </div>
+            
+            <nav class="header-nav" id="header-nav">
+                <?php
+                wp_nav_menu(array(
+                    'theme_location' => 'primary',
+                    'container' => false,
+                    'menu_class' => 'header-nav-menu',
+                    'fallback_cb' => false,
+                    'items_wrap' => '<ul class="%2$s">%3$s</ul>',
+                    'walker' => new Custom_Nav_Walker()
+                ));
+                ?>
+            </nav>
+            
+            <button class="mobile-menu-toggle" aria-label="Menu" id="mobile-menu-toggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+    <?php
+});
+
+// Кастомный Walker для навигационного меню
+class Custom_Nav_Walker extends Walker_Nav_Menu {
+    function start_lvl(&$output, $depth = 0, $args = null) {
+        $output .= '<ul class="sub-menu">';
+    }
     
-    <button class="mobile-menu-toggle" aria-label="Menu">
-      <span></span>
-      <span></span>
-      <span></span>
-    </button>
-  </div>
-</header>
+    function end_lvl(&$output, $depth = 0, $args = null) {
+        $output .= '</ul>';
+    }
+    
+    function start_el(&$output, $item, $depth = 0, $args = null, $id = 0) {
+        $classes = empty($item->classes) ? array() : (array) $item->classes;
+        $classes[] = 'menu-item-' . $item->ID;
+        
+        $class_names = join(' ', apply_filters('nav_menu_css_class', array_filter($classes), $item, $args));
+        $class_names = $class_names ? ' class="' . esc_attr($class_names) . '"' : '';
+        
+        $id = apply_filters('nav_menu_item_id', 'menu-item-'. $item->ID, $item, $args);
+        $id = $id ? ' id="' . esc_attr($id) . '"' : '';
+        
+        $output .= '<li' . $id . $class_names .'>';
+        
+        $attributes = ! empty($item->attr_title) ? ' title="'  . esc_attr($item->attr_title) .'"' : '';
+        $attributes .= ! empty($item->target)     ? ' target="' . esc_attr($item->target     ) .'"' : '';
+        $attributes .= ! empty($item->xfn)        ? ' rel="'    . esc_attr($item->xfn        ) .'"' : '';
+        $attributes .= ! empty($item->url)        ? ' href="'   . esc_attr($item->url        ) .'"' : '';
+        
+        $item_output = isset($args->before) ? $args->before : '';
+        $item_output .= '<a class="nav-link"' . $attributes .'>';
+        $item_output .= (isset($args->link_before) ? $args->link_before : '') . apply_filters('the_title', $item->title, $item->ID) . (isset($args->link_after) ? $args->link_after : '');
+        $item_output .= '</a>';
+        $item_output .= isset($args->after) ? $args->after : '';
+        
+        $output .= apply_filters('walker_nav_menu_start_el', $item_output, $item, $depth, $args);
+    }
+    
+    function end_el(&$output, $item, $depth = 0, $args = null) {
+        $output .= '</li>';
+    }
+}
+?>

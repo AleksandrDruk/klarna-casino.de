@@ -264,24 +264,23 @@ document.addEventListener('DOMContentLoaded', function() {
   
   function createProgressIndicator() {
     const progressBar = document.createElement('div');
-    progressBar.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 0%;
-      height: 3px;
-      background: linear-gradient(90deg, #FF3B1A, #FF7A18, #FFB84A);
-      z-index: 9999;
-      transition: width 0.1s ease;
-      box-shadow: 0 0 10px #FF7A18;
-    `;
+    progressBar.className = 'scroll-progress-bar';
     document.body.appendChild(progressBar);
     
-    window.addEventListener('scroll', () => {
+    function updateProgressBar() {
+      const header = document.querySelector('.site-header');
+      const headerHeight = header ? header.offsetHeight : 70;
+      
       const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
       const scrolled = (window.pageYOffset / windowHeight) * 100;
       progressBar.style.width = scrolled + '%';
-    });
+      progressBar.style.top = headerHeight + 'px';
+    }
+    
+    // Обновляем позицию при загрузке и изменении размера окна
+    updateProgressBar();
+    window.addEventListener('resize', updateProgressBar);
+    window.addEventListener('scroll', updateProgressBar);
   }
   
   createProgressIndicator();
@@ -381,34 +380,56 @@ document.addEventListener('DOMContentLoaded', function() {
   // HEADER FUNCTIONALITY
   // ============================================
   
-  const header = document.querySelector('.site-header');
-  const mobileToggle = document.querySelector('.mobile-menu-toggle');
-  const nav = document.querySelector('.header-nav');
-  
-  // Scroll effect
-  if (header) {
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 50) {
-        header.classList.add('scrolled');
-      } else {
-        header.classList.remove('scrolled');
-      }
-    });
-  }
-  
-  // Mobile menu toggle
-  if (mobileToggle && nav) {
-    mobileToggle.addEventListener('click', () => {
-      nav.classList.toggle('active');
-    });
+  // Функция инициализации header функциональности
+  function initHeaderFunctionality() {
+    // Ищем header (поддерживаем оба варианта: с классом custom-site-header и без)
+    const header = document.querySelector('.site-header.custom-site-header') || document.querySelector('.site-header');
+    const mobileToggle = document.getElementById('mobile-menu-toggle');
+    const nav = document.getElementById('header-nav');
     
-    // Close menu when clicking nav links
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.addEventListener('click', () => {
-        nav.classList.remove('active');
+    // Мобильное меню для WordPress и обычных страниц
+    if (mobileToggle && nav) {
+      // Обработчик клика на бургер-кнопку
+      mobileToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        nav.classList.toggle('active');
+        mobileToggle.classList.toggle('active');
       });
-    });
+      
+      // Закрываем меню при клике на ссылки
+      const navLinks = nav.querySelectorAll('a');
+      navLinks.forEach(function(link) {
+        link.addEventListener('click', function() {
+          nav.classList.remove('active');
+          mobileToggle.classList.remove('active');
+        });
+      });
+      
+      // Закрываем меню при клике вне его области
+      document.addEventListener('click', function(e) {
+        if (nav.classList.contains('active') && 
+            !nav.contains(e.target) && 
+            !mobileToggle.contains(e.target)) {
+          nav.classList.remove('active');
+          mobileToggle.classList.remove('active');
+        }
+      });
+    }
+    
+    // Эффект скролла для header
+    if (header) {
+      window.addEventListener('scroll', function() {
+        if (window.scrollY > 50) {
+          header.classList.add('scrolled');
+        } else {
+          header.classList.remove('scrolled');
+        }
+      });
+    }
   }
+  
+  // Инициализируем header функциональность
+  initHeaderFunctionality();
 
   // ============================================
   // FLAME EFFECT FOR TABLE WRAPPER
@@ -826,3 +847,33 @@ function getScrollPercentage() {
   const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
   return (window.pageYOffset / windowHeight) * 100;
 }
+
+// ============================================
+// REMOVE ASTRA DEFAULT FOOTER
+// ============================================
+// JavaScript fallback для удаления дефолтного footer Astra через DOM
+(function() {
+  function removeAstraFooter() {
+    // Удаляем все footer элементы Astra, кроме нашего кастомного
+    const astraFooters = document.querySelectorAll("footer.site-footer:not(.custom-site-footer), footer#colophon, footer.ast-footer");
+    astraFooters.forEach(function(footer) {
+      // Проверяем, что это не наш кастомный footer
+      if (!footer.classList.contains('custom-site-footer')) {
+        footer.remove();
+      }
+    });
+  }
+  
+  // Выполняем удаление при загрузке DOM
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", removeAstraFooter);
+  } else {
+    removeAstraFooter();
+  }
+  
+  // Также удаляем после загрузки всех скриптов
+  window.addEventListener("load", removeAstraFooter);
+  
+  // Дополнительная проверка через небольшую задержку
+  setTimeout(removeAstraFooter, 100);
+})();
